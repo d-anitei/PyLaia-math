@@ -5,7 +5,14 @@ import pytest
 import torch
 from PIL import Image
 
-from laia.data.transforms.vision import Convert, Invert, ToImageTensor
+from laia.data.transforms.vision import (
+    Convert,
+    DigitalBornMathAugment,
+    Invert,
+    RandomPadCropJitter,
+    RandomResolutionDegradation,
+    ToImageTensor,
+)
 
 
 def test_invert():
@@ -137,3 +144,51 @@ def test_to_image_tensor():
         "  ToTensor()\n"
         ")"
     )
+
+
+def test_random_resolution_degradation_preserves_size_and_mode():
+    transform = RandomResolutionDegradation()
+    img = Image.new("L", size=(128, 64), color=255)
+    out = transform(img)
+    assert isinstance(out, Image.Image)
+    assert out.mode == img.mode
+    assert out.size == img.size
+
+
+def test_random_pad_crop_jitter_preserves_size_and_mode():
+    transform = RandomPadCropJitter(fillcolor=255)
+    img = Image.new("L", size=(128, 64), color=255)
+    out = transform(img)
+    assert isinstance(out, Image.Image)
+    assert out.mode == img.mode
+    assert out.size == img.size
+
+
+def test_digital_born_math_augment_preserves_size_and_mode():
+    transform = DigitalBornMathAugment(fillcolor=255)
+    img = Image.new("L", size=(128, 64), color=255)
+    out = transform(img)
+    assert isinstance(out, Image.Image)
+    assert out.mode == img.mode
+    assert out.size == img.size
+
+
+def test_to_image_tensor_with_digital_born_math_augment_repr():
+    transform = ToImageTensor(
+        invert=True,
+        random_transform=DigitalBornMathAugment(fillcolor=255),
+    )
+    expected = (
+        "ToImageTensor(\n"
+        "  vision.Convert(mode=L),\n"
+        "  vision.Invert(),\n"
+        "  vision.DigitalBornMathAugment(\n"
+        "  vision.RandomResolutionDegradation(min_scale=0.55, max_scale=0.9),\n"
+        "  vision.RandomMorphology(Dilate|Erode, p=0.25),\n"
+        "  vision.RandomBetaAffine(max_offset_ratio=0.05, alpha=3, beta=3, fillcolor=255),\n"
+        "  vision.RandomPadCropJitter(max_pad_ratio=0.08, max_crop_ratio=0.03)\n"
+        "),\n"
+        "  ToTensor()\n"
+        ")"
+    )
+    assert str(transform) == expected

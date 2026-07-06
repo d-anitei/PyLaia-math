@@ -1,13 +1,14 @@
 from typing import Any, Dict, List
 
 import torch
+import numpy as np
 
 from laia.losses.ctc_loss import transform_batch
 
 
 class CTCGreedyDecoder:
     def __call__(
-        self, x: Any, segmentation: bool = False, apply_softmax: bool = True
+        self, x: Any, segmentation: bool = True, apply_softmax: bool = True
     ) -> Dict[str, List]:
         x, xs = transform_batch(x)
         x = x.detach()
@@ -34,6 +35,9 @@ class CTCGreedyDecoder:
         # Get symbols and probabilities
         probs = [x_n.values.exp() for x_n in x]
         x = [x_n.indices for x_n in x]
+
+        out["indices"] = x
+        out["probs"] = probs
 
         # Remove consecutive symbols
         # Keep track of counts of consecutive symbols. Example: [0, 0, 0, 1, 2, 2] => [3, 1, 2]

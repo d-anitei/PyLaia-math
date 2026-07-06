@@ -39,6 +39,7 @@ def run(
         model,
         batch_input_fn=Compose([ItemFeeder("img"), ImageFeeder()]),
         batch_id_fn=ItemFeeder("id"),
+        output_temperature=netout.output_temperature,
     )
 
     # prepare the data

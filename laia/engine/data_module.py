@@ -43,6 +43,7 @@ class DataModule(pl.LightningDataModule):
         self.img_dirs = img_dirs
         self.img_channels = len(color_mode)
         self.batch_size = batch_size
+        fillcolor = 255 if color_mode == "L" else tuple(255 for _ in range(len(color_mode)))
         # TODO: https://github.com/PyTorchLightning/pytorch-lightning/issues/2196
         self.num_workers = num_workers or multiprocessing.cpu_count()
         if stage == "fit":
@@ -54,9 +55,11 @@ class DataModule(pl.LightningDataModule):
             tr_img_transform = transforms.vision.ToImageTensor(
                 mode=color_mode,
                 invert=True,
-                random_transform=transforms.vision.RandomBetaAffine()
-                if augment_tr
-                else None,
+                random_transform=(
+                    transforms.vision.DigitalBornMathAugment(fillcolor=fillcolor)
+                    if augment_tr
+                    else None
+                ),
             )
             txt_transform = transforms.text.ToTensor(syms)
             _logger.info(f"Training data transforms:\n{tr_img_transform}")

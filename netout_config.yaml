@@ -1,0 +1,20 @@
+img_dirs: [Test]
+img_list: va.lst
+common:
+  model_filename: m7
+  train_path: EXP
+  checkpoint: epoch=299-lowest_va_cer.ckpt
+logging:
+  filepath: CMs-crnn.log
+  level: INFO
+  to_stderr_level: INFO
+  overwrite: true
+data:
+  batch_size: 4
+  color_mode: L
+netout:
+  output_transform: log_softmax
+  matrix: ConfMats_va.ark
+  output_temperature: 1.0
+trainer:
+  gpus: 1

@@ -15,7 +15,8 @@ def image_to_sequence(x, columnwise=True, return_packed=False):
 
     n, c, h, w = x.size()
     if columnwise:
-        x = x.permute(3, 0, 1, 2).contiguous().view(w, n, h * c)
+        x = x.permute(3, 0, 2, 1).contiguous().view(w, n, c * h) # depth stack
+        # x = x.permute(3, 0, 1, 2).contiguous().view(w, n, c * h) # vertical stack
     else:
         x = x.permute(2, 0, 1, 3).contiguous().view(h, n, w * c)
 

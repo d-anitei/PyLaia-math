@@ -50,6 +50,7 @@ class ConvBlock(nn.Module):
             # Note: If batchnorm is used, the bias does not
             # affect the output of the unit.
             bias=not batchnorm,
+            # padding_mode='reflect'
         )
 
         # Add Batch normalization
@@ -90,7 +91,7 @@ class ConvBlock(nn.Module):
 
         if self.use_masks:
             x = mask_image_from_size(x, batch_sizes=xs, mask_value=0)
-
+                
         if self.pool:
             x = self.pool(x)
 

@@ -63,6 +63,7 @@ logging:
   to_stderr_level: ERROR
 netout:
   output_transform: null
+  output_temperature: 1.0
   matrix: null
   lattice: null
   digits: 10"""

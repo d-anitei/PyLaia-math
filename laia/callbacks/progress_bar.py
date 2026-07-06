@@ -10,7 +10,6 @@ from tqdm.auto import tqdm
 import laia.common.logging as log
 from laia.callbacks.meters import Timer
 
-
 class ProgressBar(pl.callbacks.ProgressBar):
     def __init__(
         self,
@@ -148,6 +147,7 @@ class ProgressBar(pl.callbacks.ProgressBar):
 
     def on_train_epoch_end(self, trainer, *args, **kwargs):
         super().on_train_epoch_end(trainer, *args, **kwargs)
+
         if self.is_enabled:
             # add metrics to training bar
             self.set_postfix(self.main_progress_bar, "tr_")

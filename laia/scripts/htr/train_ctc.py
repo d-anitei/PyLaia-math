@@ -6,7 +6,12 @@ import pytorch_lightning as pl
 import torch
 
 import laia.common.logging as log
-from laia.callbacks import LearningRate, ProgressBar, ProgressBarGPUStats
+from laia.callbacks import (
+    HardNegativeMining,
+    LearningRate,
+    ProgressBar,
+    ProgressBarGPUStats,
+)
 from laia.common.arguments import (
     CommonArgs,
     DataArgs,
@@ -42,6 +47,7 @@ def run(
     )
     # maybe load a checkpoint
     checkpoint = None
+    model = None
     if train.resume:
         checkpoint = loader.prepare_checkpoint(
             common.checkpoint, common.experiment_dirpath, common.monitor
@@ -50,8 +56,11 @@ def run(
         log.info(f'Using checkpoint "{checkpoint}"')
         log.info(f"Max epochs set to {trainer.max_epochs}")
 
-    # load the non-pytorch_lightning model
-    model = loader.load()
+        model = loader.load_by(checkpoint) 
+    else:
+        # load the non-pytorch_lightning model
+        model = loader.load()
+
     assert (
         model is not None
     ), "Could not find the model. Have you run pylaia-htr-create-model?"
@@ -61,17 +70,20 @@ def run(
     for d in train.delimiters:
         assert d in syms, f'The delimiter "{d}" is not available in the symbols file'
 
+    
     # prepare the engine
     engine_module = HTREngineModule(
         model,
         [syms[d] for d in train.delimiters],
+        symbols=syms,
         optimizer=optimizer,
         scheduler=scheduler,
         batch_input_fn=Compose([ItemFeeder("img"), ImageFeeder()]),
         batch_target_fn=ItemFeeder("txt"),
         batch_id_fn=ItemFeeder("id"),  # Used to print image ids on exception
+        output_temperature=train.output_temperature,
     )
-
+    
     # prepare the data
     data_module = DataModule(
         syms=syms,
@@ -80,7 +92,7 @@ def run(
         va_txt_table=va_txt_table,
         batch_size=data.batch_size,
         color_mode=data.color_mode,
-        shuffle_tr=not bool(trainer.limit_train_batches),
+        shuffle_tr=trainer.limit_train_batches==1.0,#not bool(trainer.limit_train_batches),
         augment_tr=train.augment_training,
         stage="fit",
         num_workers=num_workers,
@@ -104,7 +116,8 @@ def run(
         verbose=True,
         mode="min",
         strict=False,  # training_step may return None
-    )
+    )    
+
     callbacks = [
         ProgressBar(refresh_rate=trainer.progress_bar_refresh_rate),
         checkpoint_callback,
@@ -115,16 +128,29 @@ def run(
         callbacks.append(ProgressBarGPUStats())
     if scheduler.active:
         callbacks.append(LearningRate(logging_interval="epoch"))
-
+    trainer.reload_dataloaders_every_epoch = train.hard_negative_mining
+    if train.hard_negative_mining:
+        callbacks.append(
+            HardNegativeMining(
+                ratio=train.hard_negative_ratio,
+                strategy=train.hard_negative_strategy.value,
+                start_epoch=train.hard_negative_start_epoch,
+            )
+        )
+    
     # prepare the trainer
     trainer = pl.Trainer(
         default_root_dir=common.train_path,
-        resume_from_checkpoint=checkpoint,
+        # resume_from_checkpoint=checkpoint,
         callbacks=callbacks,
         logger=EpochCSVLogger(common.experiment_dirpath),
         checkpoint_callback=True,
+
         **vars(trainer),
     )
+
+    if train.resume:
+        trainer.current_epoch = torch.load(checkpoint)["epoch"]
 
     # train!
     trainer.fit(engine_module, datamodule=data_module)

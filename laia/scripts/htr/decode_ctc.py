@@ -3,12 +3,13 @@ from typing import Any, Dict, List, Optional
 
 import jsonargparse
 import pytorch_lightning as pl
+import torch
 
 import laia.common.logging as log
 from laia.callbacks import Decode, ProgressBar, Segmentation
 from laia.common.arguments import CommonArgs, DataArgs, DecodeArgs, TrainerArgs
 from laia.common.loader import ModelLoader
-from laia.decoders import CTCGreedyDecoder, CTCLanguageDecoder
+from laia.decoders import CTCGreedyDecoder, CTCLanguageDecoder, CTCNBestDecoder
 from laia.engine import Compose, DataModule, EvaluatorModule, ImageFeeder, ItemFeeder
 from laia.scripts.htr import common_main
 from laia.utils import SymbolsTable
@@ -37,15 +38,21 @@ def run(
         model is not None
     ), "Could not find the model. Have you run pylaia-htr-create-model?"
 
+    # prepare the symbols
+    syms = SymbolsTable(syms)
+
     # prepare the evaluator
     evaluator_module = EvaluatorModule(
         model,
+        symbols=syms,
         batch_input_fn=Compose([ItemFeeder("img"), ImageFeeder()]),
         batch_id_fn=ItemFeeder("id"),
-    )
-
-    # prepare the symbols
-    syms = SymbolsTable(syms)
+        recalibrate_alignment=decode.recalibrate_alignment,
+        cross_attention_recalibration_layer=decode.cross_attention_recalibration_layer,
+        recalibration_attention_layers=decode.recalibration_attention_layers,
+        recalibration_output_path=decode.recalibration_output_path,
+        output_temperature=decode.output_temperature,
+    )    
 
     # prepare the data
     data_module = DataModule(
@@ -73,7 +80,18 @@ def run(
         decode.print_word_confidence_scores = False
 
     else:
-        decoder = CTCGreedyDecoder()
+        if decode.decoder == DecodeArgs.Decoder.nbest:
+            decoder = CTCNBestDecoder(
+                nbest=decode.nbest,
+                tokens=syms,
+                blank_token=decode.blank_token,
+                sil_token=decode.input_space,
+                unk_word=decode.unk_token,
+            )
+            decode.print_line_confidence_scores = False
+            decode.print_word_confidence_scores = False
+        else:
+            decoder = CTCGreedyDecoder()
 
     # prepare the testing callbacks
     callbacks = [
@@ -110,7 +128,11 @@ def run(
     )
 
     # decode!
+    torch.backends.cudnn.enabled=False
+
     trainer.test(evaluator_module, datamodule=data_module, verbose=False)
+
+    
 
 
 def get_args(argv: Optional[List[str]] = None) -> Dict[str, Any]:

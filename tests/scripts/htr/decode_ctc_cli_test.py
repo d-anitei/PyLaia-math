@@ -15,6 +15,8 @@ def test_get_args():
             "img_list",
             "--common.checkpoint=model.ckpt",
             "--data.color_mode=RGBA",
+            "--decode.decoder=nbest",
+            "--decode.nbest=25",
             "--decode.use_symbols=false",
             "--decode.convert_spaces=true",
         ]
@@ -24,6 +26,8 @@ def test_get_args():
     assert args["img_list"] == "img_list"
     assert args["common"].checkpoint == "model.ckpt"
     assert args["img_dirs"] is None
+    assert args["decode"].decoder == "nbest"
+    assert args["decode"].nbest == 25
     assert not args["decode"].use_symbols
     assert args["decode"].separator == " "
     assert args["decode"].join_string == " "
@@ -64,6 +68,7 @@ def test_entry_point():
     assert "Batch size (type: PositiveInt, default: 8)" in help
     assert "--data.color_mode {L,RGB,RGBA}" in help
     assert "Decode arguments:" in help
+    assert "--decode.decoder {greedy,nbest}" in help
     assert "(type: str, default: <space>)" in help
     assert "--decode.segmentation {char,word,null}" in help
 
@@ -96,8 +101,20 @@ decode:
   input_space: <space>
   output_space: ' '
   segmentation: null
+  recalibrate_alignment: false
+  cross_attention_recalibration_layer: 1
+  recalibration_attention_layers:
+  - 0
+  - 3
+  - 4
+  - 6
+  - 9
+  recalibration_output_path: pos_mapping_ts_det_nogt.txt
+  output_temperature: 1.0
   print_line_confidence_scores: false
   print_word_confidence_scores: false
+  decoder: greedy
+  nbest: 50
   use_language_model: false
   language_model_path: null
   language_model_weight: null

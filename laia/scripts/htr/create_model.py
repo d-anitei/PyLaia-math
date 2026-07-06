@@ -2,6 +2,7 @@
 from typing import Any, Dict, List, Optional
 
 import jsonargparse
+import torch
 import torch.nn as nn
 from jsonargparse.typing import NonNegativeInt
 from pytorch_lightning import seed_everything
@@ -10,6 +11,7 @@ import laia.common.logging as log
 from laia.common.arguments import CommonArgs, CreateCRNNArgs
 from laia.common.saver import ModelSaver
 from laia.models.htr import LaiaCRNN
+from laia.models.htr.custom_resnet import CustomResnet
 from laia.scripts.htr import common_main
 from laia.utils import SymbolsTable
 
@@ -27,22 +29,33 @@ def run(
     crnn.num_output_labels = len(SymbolsTable(syms))
     if crnn is not None:
         if fixed_input_height:
-            conv_output_size = LaiaCRNN.get_conv_output_size(
-                size=(fixed_input_height, fixed_input_height),
-                cnn_kernel_size=crnn.cnn_kernel_size,
-                cnn_stride=crnn.cnn_stride,
-                cnn_dilation=crnn.cnn_dilation,
-                cnn_poolsize=crnn.cnn_poolsize,
-            )
+            if crnn.cnn_backend == crnn.CNNBackend.resnet:
+                conv_output_size = CustomResnet.get_output_size(
+                    torch.tensor([fixed_input_height, fixed_input_height]),
+                    crnn.resnet_dimension,
+                    crnn.resnet_pool,
+                )
+            else:
+                conv_output_size = LaiaCRNN.get_conv_output_size(
+                    size=(fixed_input_height, fixed_input_height),
+                    cnn_kernel_size=crnn.cnn_kernel_size,
+                    cnn_stride=crnn.cnn_stride,
+                    cnn_dilation=crnn.cnn_dilation,
+                    cnn_poolsize=crnn.cnn_poolsize,
+                )
             fixed_size_after_conv = conv_output_size[1 if crnn.vertical_text else 0]
+            if hasattr(fixed_size_after_conv, "item"):
+                fixed_size_after_conv = fixed_size_after_conv.item()
             assert (
                 fixed_size_after_conv > 0
             ), "The image size is too small for the CNN architecture"
             crnn.image_sequencer = f"none-{fixed_size_after_conv}"
         else:
             crnn.image_sequencer = adaptive_pooling
-        crnn.rnn_type = getattr(nn, crnn.rnn_type)
-        crnn.cnn_activation = [getattr(nn, act) for act in crnn.cnn_activation]
+        if crnn.context_backend == crnn.ContextBackend.rnn:
+            crnn.rnn_type = getattr(nn, crnn.rnn_type)
+        if crnn.cnn_backend == crnn.CNNBackend.vgg:
+            crnn.cnn_activation = [getattr(nn, act) for act in crnn.cnn_activation]
 
     model = LaiaCRNN(**vars(crnn))
     log.info(
@@ -60,12 +73,10 @@ def get_args(argv: Optional[List[str]] = None) -> Dict[str, Any]:
     parser = jsonargparse.ArgumentParser(
         parse_as_dict=True,
         description=(
-            "Create a model for HTR composed of a set of convolutional blocks, followed"
-            " by a set of bidirectional RNN layers, and a final linear layer. Each"
-            " convolutional block is composed by a 2D convolutional layer, an optional"
-            " batch normalization layer, a non-linear activation function, and an"
-            " optional 2D max-pooling layer. A dropout layer might precede each"
-            " block, rnn layer, and the final linear layer"
+            "Create a model for HTR composed of a CNN encoder, a configurable "
+            "context modeler, and a final linear layer. A dropout layer can "
+            "precede each convolutional block, the context modeler, and the "
+            "final linear layer."
         ),
     )
     parser.add_argument(

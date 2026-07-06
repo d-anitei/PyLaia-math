@@ -57,7 +57,7 @@ class CTCLoss(Loss):
     """
 
     def __init__(
-        self, reduction: str = "mean", average_frames: bool = False, blank: int = 0
+        self, reduction: str = "none", average_frames: bool = False, blank: int = 0
     ):
         super().__init__()
         assert reduction in (
@@ -97,10 +97,11 @@ class CTCLoss(Loss):
             xs.detach().to(dtype=torch.int, device=cpu)
             if isinstance(xs, torch.Tensor)
             else torch.tensor(xs, dtype=torch.int, device=cpu)
-        )
-        ys = torch.tensor([len(y_n) for y_n in y], dtype=torch.int, device=cpu)
-        y = torch.tensor(list(itertools.chain.from_iterable(y)), dtype=torch.int)
+        )      
 
+        ys = torch.tensor([len(y_n) for y_n in y], dtype=torch.int, device=cpu)
+        y = torch.tensor(list(itertools.chain.from_iterable(y)), dtype=torch.int)        
+                
         with torch.backends.cudnn.flags(enabled=False):
             losses = torch.nn.functional.ctc_loss(
                 log_probs=x,
@@ -110,12 +111,12 @@ class CTCLoss(Loss):
                 blank=self.blank,
                 reduction="none",
                 zero_infinity=True,
-            )
+            )        
 
         # keep valid indices
         valid_indices = torch.tensor(valid_indices, device=cpu)
         losses = losses.index_select(0, valid_indices.to(device=losses.device))
-        xs = xs.index_select(0, valid_indices)
+        xs = xs.index_select(0, valid_indices)     
 
         if self.average_frames:
             losses = losses / xs.to(losses)

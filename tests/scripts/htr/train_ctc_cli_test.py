@@ -15,6 +15,7 @@ def test_get_args(tmpdir):
         "va_table",
         "--train.delimiters=null",
         "--train.checkpoint_k=-1",
+        "--scheduler.name=cosine_warm_restarts",
         "--scheduler.monitor=va_wer",
         "--scheduler.patience=20",
         "--trainer.gpus=[1,2]",
@@ -28,6 +29,7 @@ def test_get_args(tmpdir):
     assert args["va_txt_table"] == "va_table"
     assert not args["train"].delimiters
     assert args["train"].checkpoint_k == -1
+    assert args["scheduler"].name == "cosine_warm_restarts"
     assert args["scheduler"].monitor == "va_wer"
     assert args["scheduler"].patience == 20
     assert args["trainer"].gpus == [1, 2]
@@ -97,6 +99,11 @@ train:
   early_stopping_patience: 20
   gpu_stats: false
   augment_training: false
+  hard_negative_mining: false
+  hard_negative_strategy: ratio
+  hard_negative_ratio: 0.1
+  hard_negative_start_epoch: 1
+  output_temperature: 1.0
 logging:
   fmt: '[%(asctime)s %(levelname)s %(name)s] %(message)s'
   level: INFO
@@ -111,9 +118,17 @@ optimizer:
   nesterov: false
 scheduler:
   active: false
+  name: reduce_on_plateau
   monitor: va_loss
   patience: 5
-  factor: 0.1"""
+  factor: 0.1
+  min_lr: 1.0e-06
+  linear_start_factor: 1.0
+  linear_end_factor: 0.01
+  linear_total_iters: 150
+  cosine_t0: 10
+  cosine_t_mult: 1
+  cosine_eta_min: 0.0"""
 
 
 def test_config_output():

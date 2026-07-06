@@ -42,6 +42,7 @@ class CTCLanguageDecoder:
             unk_word=unk_token,
             sil_token=sil_token,
         )
+        
 
     def __call__(
         self,

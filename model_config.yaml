@@ -1,0 +1,47 @@
+syms: symb_mixt.txt
+save_model: true
+adaptive_pooling: avgpool-24
+common:
+  model_filename: m7
+  train_path: EXP/  
+crnn:
+  num_input_channels: 1
+  vertical_text: false
+  # VGG configuration
+  cnn_backend: vgg
+  cnn_num_features: [32,64,128,256,512]
+  cnn_kernel_size: [3,3,3,3,3]
+  cnn_stride: [1,1,1,1,1]
+  cnn_dilation: [1,1,1,1,1]  
+  cnn_activation: [LeakyReLU,LeakyReLU,LeakyReLU,LeakyReLU,LeakyReLU]  
+  cnn_poolsize: [[2,2],[2,1],[0,0],[0,0],[0,0]]
+  cnn_dropout: [0,0,0,0,0]
+  cnn_batchnorm: [true,true,true,true,true]
+  use_masks: true
+  # ResNet configuration
+  # cnn_backend: resnet
+  # resnet_dimension: 34
+  # resnet_weights: DEFAULT
+  # resnet_pool: 
+  #   5: [2,1]
+  #   6: [2,1]
+  #   7: [2,1]  
+  # RNN configuration
+  # context_backend: rnn
+  # rnn_type: LSTM
+  # rnn_layers: 3
+  # rnn_units: 512
+  # rnn_dropout: 0.5  
+  # Transformer configuration
+  context_backend: transformer
+  transformer_encoder_layers: 8
+  transformer_cross_attention_layers: 4
+  transformer_model_size: 768
+  transformer_num_heads: 12
+  transformer_dropout: 0.1
+  context_dropout: 0.5
+  lin_dropout: 0.5  
+logging:
+  filepath: model.log
+  overwrite: true
+  to_stderr_level: INFO

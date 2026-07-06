@@ -78,6 +78,7 @@ ENV/
 # Usual temporary folders
 tmp/
 kk/
+.codex
 
 # Project specific files
 laia/version.py

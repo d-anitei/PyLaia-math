@@ -65,58 +65,77 @@ class Decode(pl.Callback):
     def print_confidence_scores(self):
         return self.print_word_confidence_scores or self.print_line_confidence_scores
 
+    def _format_hypothesis(self, hyp):
+        if self.use_symbols:
+            hyp = [self.syms[v] for v in hyp]
+            if self.convert_spaces:
+                hyp = [
+                    self.output_space if sym == self.input_space else sym for sym in hyp
+                ]
+        if self.join_string is not None:
+            hyp = self.join_string.join(str(x) for x in hyp).strip()
+        return hyp
+
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, *args):
         super().on_test_batch_end(trainer, pl_module, outputs, batch, *args)
         img_ids = pl_module.batch_id_fn(batch)
-        hyps = self.decoder(outputs)["hyp"]
-
-        if self.print_confidence_scores:
-            probs = self.decoder(outputs)["prob-htr-char"]
-            line_probs = [np.mean(prob) for prob in probs]
-            word_probs = [
-                compute_word_prob(self.syms, hyp, prob, self.input_space)
-                for hyp, prob in zip(hyps, probs)
-            ]
-
-        else:
-            probs = []
-            line_probs = []
-            word_probs = []
-
-        for i, (img_id, hyp) in enumerate(zip(img_ids, hyps)):
-            if self.use_symbols:
-                hyp = [self.syms[v] for v in hyp]
-                if self.convert_spaces:
-                    hyp = [
-                        self.output_space if sym == self.input_space else sym
-                        for sym in hyp
-                    ]
-            if self.join_string is not None:
-                hyp = self.join_string.join(str(x) for x in hyp).strip()
+        
+        # if decode beam 1
+        if isinstance(self.decoder, CTCGreedyDecoder):
+            hyps = self.decoder(outputs)["hyp"]            
 
             if self.print_confidence_scores:
-                if self.print_word_confidence_scores:
-                    word_prob = [f"{prob:.2f}" for prob in word_probs[i]]
-                    self.write(
-                        f"{img_id}{self.separator}{word_prob}{self.separator}{hyp}"
-                        if self.include_img_ids
-                        else f"{word_prob}{self.separator}{hyp}"
-                    )
-
-                else:
-                    line_prob = line_probs[i]
-                    self.write(
-                        f"{img_id}{self.separator}{line_prob:.2f}{self.separator}{hyp}"
-                        if self.include_img_ids
-                        else f"{line_prob:.2f}{self.separator}{hyp}"
-                    )
+                probs = self.decoder(outputs)["prob-htr-char"]
+                line_probs = [np.mean(prob) for prob in probs]
+                word_probs = [
+                    compute_word_prob(self.syms, hyp, prob, self.input_space)
+                    for hyp, prob in zip(hyps, probs)
+                ]
 
             else:
-                self.write(
-                    f"{img_id}{self.separator}{hyp}"
-                    if self.include_img_ids
-                    else str(hyp)
-                )
+                probs = []
+                line_probs = []
+                word_probs = []
+
+            for i, (img_id, hyp) in enumerate(zip(img_ids, hyps)):
+                hyp = self._format_hypothesis(hyp)
+
+                if self.print_confidence_scores:
+                    if self.print_word_confidence_scores:
+                        word_prob = [f"{prob:.4f}" for prob in word_probs[i]]
+                        self.write(
+                            f"{img_id}{self.separator}{word_prob}{self.separator}{hyp}"
+                            if self.include_img_ids
+                            else f"{word_prob}{self.separator}{hyp}"
+                        )
+
+                    else:
+                        line_prob = line_probs[i]
+                        self.write(
+                            f"{img_id}{self.separator}{line_prob:.4f}{self.separator}{hyp}"
+                            if self.include_img_ids
+                            else f"{line_prob:.4f}{self.separator}{hyp}"
+                        )
+
+                else:
+                    self.write(
+                        f"{img_id}{self.separator}{hyp}"
+                        if self.include_img_ids
+                        else str(hyp)
+                    )
+        else:
+            out = self.decoder(outputs)
+            for img_id, hyps in zip(img_ids, out):
+                for rank, (hyp, score) in enumerate(hyps, start=1):
+                    formatted_hyp = self._format_hypothesis(hyp)
+                    score = f"{float(score):.4f}"
+                    prefix = (
+                        f"{img_id}{self.separator}" if self.include_img_ids else ""
+                    )
+                    self.write(
+                        f"{prefix}{rank}{self.separator}{score}{self.separator}{formatted_hyp}"
+                    )
+        
 
     def write(self, value):
         # no idea why adding the line break is necessary. in distributed mode with

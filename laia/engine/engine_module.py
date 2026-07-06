@@ -1,7 +1,9 @@
+from collections import defaultdict
 from typing import Any, Callable, Iterator, Optional, Tuple
 
 import pytorch_lightning as pl
 import torch
+from torch.nn.utils.rnn import PackedSequence
 
 from laia.common.arguments import OptimizerArgs, SchedulerArgs
 from laia.common.types import Loss as LossT
@@ -20,9 +22,13 @@ class EngineModule(pl.LightningModule):
         batch_input_fn: Optional[Callable] = None,
         batch_target_fn: Optional[Callable] = None,
         batch_id_fn: Optional[Callable] = None,
+        output_temperature: float = 1.0,
     ):
         super().__init__()
+        if output_temperature <= 0:
+            raise ValueError("`output_temperature` must be positive")
         self.model = model
+        self.output_temperature = output_temperature
         # configure_optimizers()
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -37,6 +43,23 @@ class EngineModule(pl.LightningModule):
         self.batch_y_hat = None
         # required by auto_lr_find
         self.lr = optimizer.learning_rate
+
+        self.monitor_loss = defaultdict(list)
+
+    def _scale_model_output(self, output: Any) -> Any:
+        if self.output_temperature == 1.0:
+            return output
+        if isinstance(output, PackedSequence):
+            return PackedSequence(
+                output.data / self.output_temperature,
+                output.batch_sizes,
+                output.sorted_indices,
+                output.unsorted_indices,
+            )
+        return output / self.output_temperature
+
+    def on_train_epoch_start(self) -> None:
+        self.monitor_loss = defaultdict(list)
 
     def configure_optimizers(self):
         weight_decay = self.optimizer.weight_l2_penalty
@@ -61,21 +84,61 @@ class EngineModule(pl.LightningModule):
                 lr=self.lr,
                 weight_decay=weight_decay,
             )
+        elif self.optimizer.name == "AdamW":
+            optimizer = torch.optim.AdamW(
+                self.parameters(),
+                lr=self.lr,
+                weight_decay=weight_decay,
+            )
         else:
             raise NotImplementedError(f"Optimizer: {self.optimizer.name}")
         if self.scheduler is not None and self.scheduler.active:
-            scheduler = {
-                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                    optimizer,
-                    mode="min",
-                    factor=self.scheduler.factor,
-                    patience=self.scheduler.patience - 1,
-                ),
-                "monitor": self.scheduler.monitor,
-                "interval": "epoch",
-                "frequency": 1,
-                "strict": False,
-            }
+            scheduler_name = (
+                self.scheduler.name.value
+                if hasattr(self.scheduler.name, "value")
+                else str(self.scheduler.name)
+            )
+            if scheduler_name == "reduce_on_plateau":
+                scheduler = {
+                    "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
+                        optimizer,
+                        mode="min",
+                        factor=self.scheduler.factor,
+                        patience=max(0, self.scheduler.patience - 1),
+                        min_lr=self.scheduler.min_lr,
+                    ),
+                    "monitor": self.scheduler.monitor,
+                    "interval": "epoch",
+                    "frequency": 1,
+                    "strict": False,
+                }
+            elif scheduler_name == "linear":
+                scheduler = {
+                    "scheduler": torch.optim.lr_scheduler.LinearLR(
+                        optimizer,
+                        start_factor=self.scheduler.linear_start_factor,
+                        end_factor=self.scheduler.linear_end_factor,
+                        total_iters=self.scheduler.linear_total_iters,
+                    ),
+                    "interval": "epoch",
+                    "frequency": 1,
+                    "strict": False,
+                }
+            elif scheduler_name == "cosine_warm_restarts":
+                scheduler = {
+                    "scheduler": torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                        optimizer,
+                        T_0=self.scheduler.cosine_t0,
+                        T_mult=self.scheduler.cosine_t_mult,
+                        eta_min=self.scheduler.cosine_eta_min,
+                    ),
+                    "interval": "epoch",
+                    "frequency": 1,
+                    "strict": False,
+                }
+            else:
+                raise NotImplementedError(f"Scheduler: {self.scheduler.name}")
+
             return [optimizer], [scheduler]
         return optimizer
 
@@ -111,12 +174,17 @@ class EngineModule(pl.LightningModule):
         with self.exception_catcher(batch):
             kwargs = {}
             if isinstance(self.criterion, Loss) and self.batch_id_fn:
-                kwargs = {"batch_ids": self.batch_id_fn(batch)}
-            batch_loss = self.criterion(batch_y_hat, batch_y, **kwargs)
+                kwargs = {"batch_ids": self.batch_id_fn(batch)}                
+            batch_loss = self.criterion(batch_y_hat, batch_y, **kwargs)            
+            
+            batch_loss_all = batch_loss       
+            
             if batch_loss is not None:
+                batch_loss = batch_loss.mean()
                 if not torch.isfinite(batch_loss).all():
                     raise ValueError("The loss is NaN or ± inf")
-            return batch_loss
+
+            return batch_loss, batch_loss_all
 
     # TODO: find out how to get the batch here
     # TODO: check gradients after backward
@@ -125,13 +193,27 @@ class EngineModule(pl.LightningModule):
     #         super().backward(loss, *args, **kwargs)
 
     def training_step(self, batch: Any, *_, **__):
-        batch_x, batch_y = self.prepare_batch(batch)
+        batch_x, batch_y = self.prepare_batch(batch)        
         with self.exception_catcher(batch):
-            batch_y_hat = self.model(batch_x)
+            model_output = self.model(batch_x)
+            batch_y_hat = (
+                model_output[0] if isinstance(model_output, tuple) else model_output
+            )
+            batch_y_hat = self._scale_model_output(batch_y_hat)
         self.check_tensor(batch, batch_y_hat)
-        batch_loss = self.compute_loss(batch, batch_y_hat, batch_y)
+        batch_loss, batch_loss_all = self.compute_loss(batch, batch_y_hat, batch_y)       
+        
         if batch_loss is None:
-            return
+            return        
+
+        # Save unreduced losses for each sample in the batch.
+        if batch_loss_all is not None and self.batch_id_fn is not None:
+            batch_ids = self.batch_id_fn(batch)
+            for sample_id, sample_loss in zip(batch_ids, batch_loss_all):
+                if sample_loss is None:
+                    continue
+                self.monitor_loss[sample_id].append(float(sample_loss.detach().item()))
+        
         self.log(
             "tr_loss",
             batch_loss,
@@ -140,14 +222,19 @@ class EngineModule(pl.LightningModule):
             prog_bar=True,
             sync_dist=True,
         )
+
         return {"loss": batch_loss, "batch_y_hat": batch_y_hat}
 
     def validation_step(self, batch: Any, *_, **__):
         batch_x, batch_y = self.prepare_batch(batch)
         with self.exception_catcher(batch):
-            batch_y_hat = self.model(batch_x)
+            model_output = self.model(batch_x)
+            batch_y_hat = (
+                model_output[0] if isinstance(model_output, tuple) else model_output
+            )
+            batch_y_hat = self._scale_model_output(batch_y_hat)
         self.check_tensor(batch, batch_y_hat)
-        batch_loss = self.compute_loss(batch, batch_y_hat, batch_y)
+        batch_loss, _, = self.compute_loss(batch, batch_y_hat, batch_y)
         if batch_loss is None:
             return
         self.log(
@@ -157,7 +244,8 @@ class EngineModule(pl.LightningModule):
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
-        )
+        )         
+        
         return {"loss": batch_loss, "batch_y_hat": batch_y_hat}
 
     def get_progress_bar_dict(self):

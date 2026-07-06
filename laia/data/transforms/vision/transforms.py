@@ -1,8 +1,12 @@
 from typing import Callable, Optional
 
+import numpy as np
 import torch
 import torchvision
 from PIL import Image, ImageOps
+
+from laia.data.transforms.vision.random_beta_affine import RandomBetaAffine
+from laia.data.transforms.vision.random_beta_morphology import Dilate, Erode
 
 
 class Invert:
@@ -134,6 +138,164 @@ class ToImageTensor:
             + ("vision.resize_transform(),\n  " if self.resize_transform else "")
             + ("vision.pad_transform(),\n  " if self.pad_transform else "")
             + f"{self.tensor_transform}\n)"
+        )
+
+
+class RandomResolutionDegradation:
+    """Downscale and restore an image using random interpolation modes."""
+
+    def __init__(
+        self,
+        min_scale: float = 0.55,
+        max_scale: float = 0.9,
+        resamples: Optional[tuple] = None,
+    ) -> None:
+        assert 0 < min_scale <= max_scale <= 1
+        self.min_scale = min_scale
+        self.max_scale = max_scale
+        self.resamples = resamples or (
+            Image.NEAREST,
+            Image.BILINEAR,
+            Image.BICUBIC,
+            Image.LANCZOS,
+        )
+
+    def __call__(self, img: Image.Image) -> Image.Image:
+        w, h = img.size
+        if w < 2 or h < 2:
+            return img
+        scale = np.random.uniform(self.min_scale, self.max_scale)
+        nw = max(1, int(round(w * scale)))
+        nh = max(1, int(round(h * scale)))
+        down_resample = self.resamples[np.random.randint(len(self.resamples))]
+        up_resample = self.resamples[np.random.randint(len(self.resamples))]
+        img = img.resize((nw, nh), resample=down_resample)
+        return img.resize((w, h), resample=up_resample)
+
+    def __repr__(self) -> str:
+        return (
+            f"vision.{self.__class__.__name__}("
+            f"min_scale={self.min_scale}, max_scale={self.max_scale})"
+        )
+
+
+class RandomPadCropJitter:
+    """Apply mild padding/cropping jitter and restore the original size."""
+
+    def __init__(
+        self,
+        max_pad_ratio: float = 0.08,
+        max_crop_ratio: float = 0.03,
+        fillcolor: int = 0,
+        resample: int = Image.BILINEAR,
+    ) -> None:
+        assert max_pad_ratio >= 0
+        assert max_crop_ratio >= 0
+        self.max_pad_ratio = max_pad_ratio
+        self.max_crop_ratio = max_crop_ratio
+        self.fillcolor = fillcolor
+        self.resample = resample
+
+    @staticmethod
+    def _sample_delta(size: int, max_crop_ratio: float, max_pad_ratio: float) -> int:
+        max_crop = int(round(size * max_crop_ratio))
+        max_pad = int(round(size * max_pad_ratio))
+        return int(np.random.randint(-max_crop, max_pad + 1))
+
+    def __call__(self, img: Image.Image) -> Image.Image:
+        w, h = img.size
+        if w < 2 or h < 2:
+            return img
+
+        left_delta = self._sample_delta(w, self.max_crop_ratio, self.max_pad_ratio)
+        right_delta = self._sample_delta(w, self.max_crop_ratio, self.max_pad_ratio)
+        top_delta = self._sample_delta(h, self.max_crop_ratio, self.max_pad_ratio)
+        bottom_delta = self._sample_delta(h, self.max_crop_ratio, self.max_pad_ratio)
+
+        crop_left = max(0, -left_delta)
+        crop_right = max(0, -right_delta)
+        crop_top = max(0, -top_delta)
+        crop_bottom = max(0, -bottom_delta)
+
+        right = max(crop_left + 1, w - crop_right)
+        bottom = max(crop_top + 1, h - crop_bottom)
+        img = img.crop((crop_left, crop_top, right, bottom))
+
+        pad_left = max(0, left_delta)
+        pad_right = max(0, right_delta)
+        pad_top = max(0, top_delta)
+        pad_bottom = max(0, bottom_delta)
+        if pad_left or pad_right or pad_top or pad_bottom:
+            img = ImageOps.expand(
+                img,
+                border=(pad_left, pad_top, pad_right, pad_bottom),
+                fill=self.fillcolor,
+            )
+
+        return img.resize((w, h), resample=self.resample)
+
+    def __repr__(self) -> str:
+        return (
+            f"vision.{self.__class__.__name__}("
+            f"max_pad_ratio={self.max_pad_ratio}, "
+            f"max_crop_ratio={self.max_crop_ratio})"
+        )
+
+
+class DigitalBornMathAugment:
+    """Training-time augmentation for digitally born mathematical expressions."""
+
+    def __init__(
+        self,
+        resolution_prob: float = 0.9,
+        morphology_prob: float = 0.25,
+        affine_prob: float = 0.8,
+        pad_crop_prob: float = 0.5,
+        fillcolor: int = 0,
+    ) -> None:
+        assert 0 <= resolution_prob <= 1
+        assert 0 <= morphology_prob <= 1
+        assert 0 <= affine_prob <= 1
+        assert 0 <= pad_crop_prob <= 1
+        self.resolution_prob = resolution_prob
+        self.morphology_prob = morphology_prob
+        self.affine_prob = affine_prob
+        self.pad_crop_prob = pad_crop_prob
+        self.resolution_transform = RandomResolutionDegradation()
+        self.morphology_transforms = (
+            Dilate(filter_size_min=3, filter_size_max=3),
+            Erode(filter_size_min=3, filter_size_max=3),
+        )
+        self.affine_transform = RandomBetaAffine(
+            max_offset_ratio=0.05,
+            alpha=3,
+            beta=3,
+            fillcolor=fillcolor,
+        )
+        self.pad_crop_transform = RandomPadCropJitter(fillcolor=fillcolor)
+
+    def __call__(self, img: Image.Image) -> Image.Image:
+        if np.random.random() < self.resolution_prob:
+            img = self.resolution_transform(img)
+        if np.random.random() < self.morphology_prob:
+            transform = self.morphology_transforms[
+                np.random.randint(len(self.morphology_transforms))
+            ]
+            img = transform(img)
+        if np.random.random() < self.affine_prob:
+            img = self.affine_transform(img)
+        if np.random.random() < self.pad_crop_prob:
+            img = self.pad_crop_transform(img)
+        return img
+
+    def __repr__(self) -> str:
+        return (
+            f"vision.{self.__class__.__name__}(\n"
+            f"  {self.resolution_transform},\n"
+            f"  vision.RandomMorphology(Dilate|Erode, p={self.morphology_prob}),\n"
+            f"  {self.affine_transform},\n"
+            f"  {self.pad_crop_transform}\n"
+            f")"
         )
 
 

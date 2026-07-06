@@ -1,0 +1,59 @@
+img_dirs: [Training, Validation]
+syms: symb_mixt.txt
+tr_txt_table: tr.txt
+va_txt_table: va.txt
+common:
+  model_filename: m7
+  train_path: EXP
+  monitor: va_cer
+  seed: 74565
+  # checkpoint: epoch=299-lowest_va_cer.ckpt
+data:
+  batch_size: 2
+  color_mode: L
+logging:
+  filepath: train.log
+  level: INFO
+  to_stderr_level: INFO
+  overwrite: true
+train:  
+  delimiters: ['<eos>']
+  checkpoint_k: 3
+  # resume: 1000  
+  early_stopping_patience: 50
+  augment_training: false  
+  hard_negative_mining: false
+  hard_negative_strategy: stddev
+  # hard_negative_strategy: ratio
+  # hard_negative_ratio: 0.1
+  hard_negative_start_epoch: 10
+  output_temperature: 1.0
+optimizer:
+  name: AdamW
+  learning_rate: 1.0e-04
+  weight_l2_penalty: 1.0e-04
+scheduler:
+  active: true
+  name: reduce_on_plateau 
+  patience: 25
+  factor: 0.1
+  min_lr: 1.0e-06
+  # name: linear 
+  # linear_start_factor: 1.0
+  # linear_end_factor: 0.01
+  # linear_total_iters: 150  
+  # name: cosine_warm_restarts
+  # cosine_t0: 10
+  # cosine_t_mult: 2
+  # cosine_eta_min=1.0e-06
+  monitor: va_cer
+  patience: 10  
+trainer:
+  gradient_clip_val: 1.0  
+  gpus: 1  
+  accumulate_grad_batches: 4
+  max_epochs: 500
+  accelerator: null  
+  weights_summary: full
+
+  

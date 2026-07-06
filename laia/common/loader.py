@@ -69,13 +69,14 @@ class ModelLoader(ObjectLoader):
 
     def get_model_state_dict(self, checkpoint: str) -> OrderedDict:
         ckpt = self._loader.load(checkpoint, device=self._device)
-        if "pytorch-lightning_version" in ckpt:
+        if "pytorch-lightning_version" in ckpt:            
             _logger.debug(
                 "Checkpoint trained for {} epochs, {} iterations",
                 ckpt["epoch"],
                 ckpt["global_step"],
             )
-            state_dict = ckpt["state_dict"]
+            ckpt["callbacks"][pl.callbacks.early_stopping.EarlyStopping]["patience"] = 800
+            state_dict = ckpt["state_dict"]            
             assert all(k.startswith("model.") for k in state_dict.keys())
             return OrderedDict((k[len("model.") :], v) for k, v in state_dict.items())
         if "tr_engine" in ckpt:
@@ -102,10 +103,36 @@ class ModelLoader(ObjectLoader):
     def load_by(self, checkpoint: str) -> Optional[torch.nn.Module]:
         _logger.info('Using checkpoint "{}"', checkpoint)
         model = self.load()
-        if model is not None:
+        if model is not None:   
             state_dict = self.get_model_state_dict(checkpoint)
-            model.load_state_dict(state_dict)
+            state_dict_new = {}
+            for key in state_dict.keys():
+                state_dict_new[self._rename_legacy_transformer_key(key)] = state_dict[key]
+            model.load_state_dict(state_dict_new, strict=True)
+            # model.load_state_dict(state_dict)
         return model
+
+    @staticmethod
+    def _rename_legacy_transformer_key(key: str) -> str:
+        for layer_idx in range(1, 9):
+            old_prefix = f"encoder_layer{layer_idx}."
+            if key.startswith(old_prefix):
+                return key.replace(
+                    old_prefix,
+                    f"encoder_layers.{layer_idx - 1}.",
+                    1,
+                )
+
+        for layer_idx in range(9, 13):
+            old_prefix = f"decoder_layer{layer_idx}."
+            if key.startswith(old_prefix):
+                return key.replace(
+                    old_prefix,
+                    f"decoder_layers.{layer_idx - 9}.",
+                    1,
+                )
+
+        return key
 
     @staticmethod
     def find_best(directory: str, monitor: str, mode: str = "min") -> Optional[str]:
@@ -129,7 +156,7 @@ class ModelLoader(ObjectLoader):
 
     @staticmethod
     def prepare_checkpoint(checkpoint: str, exp_dirpath: str, monitor: str) -> str:
-        if checkpoint:
+        if checkpoint:            
             checkpoint_path = os.path.join(exp_dirpath, checkpoint)
             found = ModelLoader.choose_by(checkpoint_path)
             err_msg = f'Could not find the checkpoint "{checkpoint_path}"'

@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional, Union
 
 import torch
 
@@ -7,19 +7,24 @@ from laia.common.arguments import OptimizerArgs, SchedulerArgs
 from laia.decoders import CTCGreedyDecoder
 from laia.engine import EngineModule
 from laia.losses import CTCLoss
+from laia.utils import SymbolsTable
 
+import numpy as np
+import matplotlib.pyplot as plt
 
 class HTREngineModule(EngineModule):
     def __init__(
         self,
         model: torch.nn.Module,
         delimiters: Iterable,
+        symbols: Optional[Union[dict, SymbolsTable]] = None,
         criterion: Optional[Callable] = CTCLoss(),
         optimizer: OptimizerArgs = OptimizerArgs(),
         scheduler: Optional[SchedulerArgs] = None,
         batch_input_fn: Optional[Callable] = None,
         batch_target_fn: Optional[Callable] = None,
         batch_id_fn: Optional[Callable] = None,
+        output_temperature: float = 1.0,
     ):
         super().__init__(
             model,
@@ -29,8 +34,10 @@ class HTREngineModule(EngineModule):
             batch_input_fn=batch_input_fn,
             batch_target_fn=batch_target_fn,
             batch_id_fn=batch_id_fn,
+            output_temperature=output_temperature,
         )
         self.delimiters = delimiters
+        self.symbols = symbols
         self.decoder = CTCGreedyDecoder()
 
     def training_step(self, batch: Any, *args, **kwargs):
@@ -42,6 +49,12 @@ class HTREngineModule(EngineModule):
         cer = torch.tensor(
             SequenceError.compute(batch_y, batch_decode), device=batch_x.device
         )
+        # save the loss for each sample in the batch
+        # for sampl in self.batch_id_fn(batch):
+        #     self.monitor_loss[sampl] = cer.item()        
+            
+        # self.model.save_output_attn.clear()
+
         self.log(
             "tr_cer",
             cer,
@@ -50,6 +63,9 @@ class HTREngineModule(EngineModule):
             prog_bar=True,
             sync_dist=True,
         )
+
+        del cer
+
         batch_decode_words = [
             char_to_word_seq(b, self.delimiters) for b in batch_decode
         ]
@@ -65,7 +81,8 @@ class HTREngineModule(EngineModule):
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
-        )
+        )        
+
         return result
 
     def validation_step(self, batch: Any, *args, **kwargs):
@@ -85,6 +102,9 @@ class HTREngineModule(EngineModule):
             prog_bar=True,
             sync_dist=True,
         )
+
+        del cer  
+        
         batch_decode_words = [
             char_to_word_seq(b, self.delimiters) for b in batch_decode
         ]
@@ -100,5 +120,5 @@ class HTREngineModule(EngineModule):
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
-        )
+        )        
         return result

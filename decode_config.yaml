@@ -1,0 +1,31 @@
+img_dirs: [Test]
+img_list: ts.lst
+syms: symb_mixt.txt
+common:
+  model_filename: m7
+  train_path: EXP
+  checkpoint: epoch=299-lowest_va_cer.ckpt
+logging:
+  filepath: CMs-crnn.log
+  level: INFO
+  to_stderr_level: INFO
+  overwrite: true
+data:
+  batch_size: 1
+  color_mode: L
+decode:
+  include_img_ids: true
+  separator: " "
+  use_symbols: true
+  convert_spaces: true  
+  input_space: '<eos>'
+  output_space: ''
+  segmentation: null
+  recalibrate_alignment: true
+  cross_attention_recalibration_layer: 1
+  recalibration_attention_layers: [0,3,4,6,9]
+  recalibration_output_path: EXP/experiment/recalibration.txt
+  output_temperature: 1.0
+  # print_line_confidence_scores: true
+trainer:
+  gpus: 1
