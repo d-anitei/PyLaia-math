@@ -6,6 +6,18 @@ targets handwritten text recognition (HTR); the changes in this repository adapt
 the model configuration, transformer context modeling, decoding utilities, and
 alignment recalibration workflow to MER.
 
+The provided model is used in the PrIx mathematical expression indexing framework
+to generate CTC posteriorgrams from images of mathematical expressions. These
+posteriorgrams encode frame-level probability distributions over the recognition
+vocabulary, including the CTC blank symbol, and are subsequently used to construct
+recognition lattices representing multiple recognition hypotheses for downstream
+indexing and exact matching of mathematical expressions.
+
+This repository provides the recognition model and the tools required to generate
+these posteriorgrams. Recognition lattice construction, hierarchical segmentation,
+and indexing are handled by subsequent stages of the PrIx pipeline and are not
+included in this repository.
+
 It includes ready-to-use configuration files for the main workflow:
 
 - model creation
@@ -15,7 +27,6 @@ It includes ready-to-use configuration files for the main workflow:
 
 The current configuration targets the IBEM dataset and includes a trained model
 checkpoint in `EXP/experiment/epoch=299-lowest_va_cer.ckpt`.
-
 
 ## Repository Contents
 
@@ -59,7 +70,7 @@ pylaia-htr-netout
 
 The provided model was trained on the IBEM dataset:
 
-https://zenodo.org/records/21528113
+[https://zenodo.org/records/21528113](https://zenodo.org/records/21528113)
 
 The example configuration files assume the following dataset files/directories
 are available from the working directory:
@@ -156,11 +167,18 @@ The provided configuration writes log-softmax confidence matrices to:
 EXP/experiment/ConfMats_va.ark
 ```
 
+These matrices represent the CTC posteriorgrams in the log-probability domain.
+They encode frame-level log posterior probabilities over the recognition vocabulary,
+including the CTC blank symbol, and serve as the input for constructing recognition
+lattices in the PrIx indexing pipeline.
+
 Use `netout.output_transform` to choose the exported representation:
 
 - `null`: raw logits
 - `softmax`: posterior probabilities
 - `log_softmax`: log posterior probabilities
+
+The subsequent construction of recognition lattices is performed outside this repository.
 
 ## Provided IBEM Results
 
@@ -211,7 +229,7 @@ version in this repository extends and configures PyLaia for typeset MER.
 
 Original project:
 
-https://github.com/jpuigcerver/PyLaia
+[https://github.com/jpuigcerver/PyLaia](https://github.com/jpuigcerver/PyLaia)
 
 ## Citation
 
