@@ -1,6 +1,6 @@
-img_dirs: [Test]
-img_list: ts.lst
-syms: symb_mixt.txt
+img_dirs: [examples/images]
+img_list: examples/ts.lst
+syms: utils/symb_mixt.txt
 common:
   model_filename: m7
   train_path: EXP
@@ -17,7 +17,7 @@ decode:
   include_img_ids: true
   separator: " "
   use_symbols: true
-  convert_spaces: true  
+  convert_spaces: true
   input_space: '<eos>'
   output_space: ''
   segmentation: null

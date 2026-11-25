@@ -1,70 +1,66 @@
 # PyLaia-Based Toolkit for Mathematical Expression Recognition
 
-This repository contains a modified PyLaia-based toolkit for typeset
-mathematical expression recognition (MER) with CTC models. The original PyLaia toolkit
-targets handwritten text recognition (HTR); the changes in this repository adapt
-the model configuration, transformer context modeling, decoding utilities, and
-alignment recalibration workflow to MER.
+This PyLaia toolkit recognizes typeset mathematical expressions as LaTeX tokens.
+It includes a pretrained CTC model for the IBEM dataset, example images, and
+tools for training, greedy decoding, and constructing recognition lattices.
 
-The provided model is used in the PrIx mathematical expression indexing framework
-to generate CTC posteriorgrams from images of mathematical expressions. These
-posteriorgrams encode frame-level probability distributions over the recognition
-vocabulary, including the CTC blank symbol, and are subsequently used to construct
-recognition lattices representing multiple recognition hypotheses for downstream
-indexing and exact matching of mathematical expressions.
-
-This repository provides the recognition model and the tools required to generate
-these posteriorgrams. Recognition lattice construction, hierarchical segmentation,
-and indexing are handled by subsequent stages of the PrIx pipeline and are not
-included in this repository.
-
-It includes ready-to-use configuration files for the main workflow:
-
-- model creation
-- CTC training
-- CTC decoding
-- neural-network output export (`netout`)
-
-The current configuration targets the IBEM dataset and includes a trained model
-checkpoint in `EXP/experiment/epoch=299-lowest_va_cer.ckpt`.
+The PrIx indexing pipeline uses the exported CTC scores to construct lattices
+that represent alternative recognition hypotheses. Its hierarchical segmentation
+and indexing tools are available in
+[kaldi-lattice-utils-math](https://github.com/d-anitei/kaldi-lattice-utils-math).
 
 ## Repository Contents
 
 | Path | Description |
 | --- | --- |
-| `model_config.yaml` | Model creation configuration. |
-| `train_config.yaml` | Training configuration. |
-| `decode_config.yaml` | CTC decoding and alignment recalibration configuration. |
-| `netout_config.yaml` | Neural-network output export configuration. |
-| `symb_mixt.txt` | Symbol table used by the configured model. |
-| `EXP/` | Experiment folder with the provided model checkpoint. |
+| `YAML/model_config.yaml` | Model creation configuration. |
+| `YAML/train_config.yaml` | Training configuration. |
+| `YAML/decode_config.yaml` | CTC decoding and alignment recalibration configuration. |
+| `YAML/netout_config.yaml` | Neural-network output export configuration. |
+| `utils/symb_mixt.txt` | Symbol table used by the configured model. |
+| `examples/tr.txt`, `examples/va.txt`, `examples/ts.txt` | Example training, validation, and test transcripts. |
+| `examples/images/` | PNG crops of mathematical expressions for testing the pipeline. |
+| `utils/simplex_out` | Optimized acoustic scale and word insertion penalty for language model decoding. |
+| `EXP/m7` | Saved model architecture used to reconstruct the network. |
+| `EXP/experiment/epoch=299-lowest_va_cer.ckpt` | Pretrained model weights. |
+| `scripts/decode_language_model_pylaia.sh` | N-gram decoding and lattice construction. |
 | `laia/` | PyLaia source code and HTR scripts. |
-
-The configured model is named `m7` and is loaded from `EXP/`.
 
 ## Installation
 
-Install the project:
-
-```bash
-pip install -e .
-```
-
-The model weights are provided via Git LFS:
+From the repository root, fetch the pretrained checkpoint with Git LFS and
+install PyLaia in your Python environment. The example workflow was tested
+with Python 3.9.
 
 ```bash
 git lfs install
-git lfs track "*.ckpt"
+git lfs pull
+pip install -e .
 ```
 
-The following command-line tools are installed:
+## Quick start
+
+Run greedy CTC recognition on the eight sample test images:
 
 ```bash
-pylaia-htr-create-model
-pylaia-htr-train-ctc
-pylaia-htr-decode-ctc
-pylaia-htr-netout
+pylaia-htr-decode-ctc --config YAML/decode_config.yaml
 ```
+
+This prints image IDs and recognized tokens to standard output. The reference
+transcripts are in `examples/ts.txt`.
+
+To produce lattices, first [install the language model tools](#language-model-decoding).
+Export log-softmax scores and decode them with a 2-gram model:
+
+```bash
+pylaia-htr-netout --config YAML/netout_config.yaml
+bash scripts/decode_language_model_pylaia.sh 2 EXP/experiment/ConfMats_example_ts.ark
+```
+
+The decoder writes best-path transcripts to
+`EXP/LM/ts-lm-2.txt` and compressed lattices to
+`EXP/LM/ts-lm-2.lat.gz`. The sampled training and validation
+transcripts are a small corpus for testing the workflow.
 
 ## Dataset
 
@@ -72,52 +68,61 @@ The provided model was trained on the IBEM dataset:
 
 [https://zenodo.org/records/21528113](https://zenodo.org/records/21528113)
 
-The example configuration files assume the following dataset files/directories
-are available from the working directory:
+The configurations in `YAML/` use the provided examples. Run the commands
+from the repository root so the configured paths resolve.
 
 ```text
-Training/
-Validation/
-Test/
-tr.txt
-va.txt
-ts.lst
-va.lst
-symb_mixt.txt
+examples/
+  images/
+  tr.txt
+  va.txt
+  ts.txt
+  ts.lst
+utils/
+  symb_mixt.txt
+  simplex_out
 ```
 
-Adjust the `img_dirs`, `tr_txt_table`, `va_txt_table`, `img_list`, and `syms`
-entries in the YAML files if your local layout is different.
+The training config reads `tr.txt` and `va.txt`. The CTC decode and Netout configs
+both read `ts.lst`, which lists the eight test image IDs.
+
+For data preparation, including normalization of LaTeX math transcripts, see
+[latex-math-normalization](https://github.com/d-anitei/latex-math-normalization).
+
+For your own data, replace the example images and image list, or point
+`img_dirs` and `img_list` to your files. Use one image ID per line in the list.
+For training, also replace the sample transcripts or update `tr_txt_table` and
+`va_txt_table`. To build an n-gram model for your data, replace
+`examples/tr.txt` and `examples/va.txt` with your tokenized training and
+validation transcripts.
 
 ## Model Creation
 
-Create the model described by `model_config.yaml`:
+Create the model described by `YAML/model_config.yaml`:
 
 ```bash
-pylaia-htr-create-model --config model_config.yaml
+pylaia-htr-create-model --config YAML/model_config.yaml
 ```
 
-The current model uses:
+The provided model architecture uses:
 
 - VGG-style CNN backend
 - Transformer context backend
 - 8 transformer encoder layers
-- 4 transformer encoder-like cross-attention layers
+- 4 cross-attention layers
 - transformer model size `768`
 - 12 attention heads
 
-The created model is saved as:
-
-```text
-EXP/m7
-```
+The default output is `EXP/m7`. Set `common.train_path` to a separate
+experiment directory when creating a model alongside the pretrained one. Use
+the same experiment directory in the training config.
 
 ## Training
 
-Train using `train_config.yaml`:
+Train using `YAML/train_config.yaml`:
 
 ```bash
-pylaia-htr-train-ctc --config train_config.yaml
+pylaia-htr-train-ctc --config YAML/train_config.yaml
 ```
 
 The provided training configuration uses:
@@ -131,23 +136,23 @@ The provided training configuration uses:
 - checkpoint output under `EXP/experiment/`
 
 To resume from a checkpoint, set `common.checkpoint` and `train.resume` in
-`train_config.yaml`.
+`YAML/train_config.yaml`.
 
 ## Decoding
 
-Decode the test set using `decode_config.yaml`:
+Run CTC decoding with the configured alignment recalibration:
 
 ```bash
-pylaia-htr-decode-ctc --config decode_config.yaml
+pylaia-htr-decode-ctc --config YAML/decode_config.yaml
 ```
 
-The provided decode configuration loads:
+PyLaia pairs `EXP/m7` with the pretrained checkpoint:
 
 ```text
 EXP/experiment/epoch=299-lowest_va_cer.ckpt
 ```
 
-and writes alignment recalibration output to:
+The command prints the transcripts and saves alignment recalibration output to:
 
 ```text
 EXP/experiment/recalibration.txt
@@ -155,16 +160,16 @@ EXP/experiment/recalibration.txt
 
 ## Netout
 
-Export network outputs using `netout_config.yaml`:
+Export network outputs using `YAML/netout_config.yaml`:
 
 ```bash
-pylaia-htr-netout --config netout_config.yaml
+pylaia-htr-netout --config YAML/netout_config.yaml
 ```
 
 The provided configuration writes log-softmax confidence matrices to:
 
 ```text
-EXP/experiment/ConfMats_va.ark
+EXP/experiment/ConfMats_example_ts.ark
 ```
 
 These matrices represent the CTC posteriorgrams in the log-probability domain.
@@ -178,7 +183,40 @@ Use `netout.output_transform` to choose the exported representation:
 - `softmax`: posterior probabilities
 - `log_softmax`: log posterior probabilities
 
-The subsequent construction of recognition lattices is performed outside this repository.
+## Language model decoding
+
+The math decoder builds a token n-gram language model from `examples/tr.txt` and
+`examples/va.txt`. Each row starts with an image ID followed by space-separated
+model tokens, for example `0010040_page005.0010040_page005-3-emb R ^ { p }`.
+The decoder uses `utils/symb_mixt.txt` and reads the acoustic scale and insertion
+penalty from the last `Optimum command:` line of `utils/simplex_out`.
+
+On Linux, install the build prerequisites first. For Debian or Ubuntu:
+
+```bash
+sudo apt-get install build-essential git cmake gfortran wget perl gawk bc \
+    autoconf automake libtool patch unzip bzip2 sox subversion \
+    libboost-program-options-dev libboost-system-dev libboost-thread-dev \
+    libboost-test-dev zlib1g-dev libbz2-dev liblzma-dev
+bash scripts/install_lm_tools.sh
+```
+
+The installer builds OpenFst, OpenBLAS, Kaldi, and KenLM under `utils/`.
+The decoder picks up these builds automatically. Set `LM_BUILD_JOBS` to
+change the build parallelism. The build log is at `utils/logs/install.log`.
+
+To use existing builds, set `KALDI_ROOT` and `KENLM_ROOT` to their source
+checkouts. Tools already on `PATH` also work when no local build is available.
+Order `0` selects a uniform vocabulary baseline and runs without KenLM.
+
+The decoder takes the n-gram order and a log-softmax score archive exported by
+Netout. Use a checkpoint whose output classes match the IDs in
+`utils/symb_mixt.txt`. To export a different split, update `img_list`,
+`img_dirs`, and `netout.matrix` in the Netout config.
+
+The outputs go to `EXP/LM/`. The filenames use the score archive stem and the
+n-gram order. A leading `ConfMats_example_` is dropped from the stem. The transcript contains the best path after applying the word
+insertion penalty.
 
 ## Provided IBEM Results
 

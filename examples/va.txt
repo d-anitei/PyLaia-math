@@ -1,0 +1,8 @@
+0006050_page006.0006050_page006-28-emb k @rel= 1
+0006050_page023.0006050_page023-2-emb H ^ { 1 } ( {@ K }@ )
+0106249_page008.0106249_page008-31-emb \langle \phi _ { d } ( {@ x }@ ) \phi _ { d } ( {@ y }@ ) J _ { l } ^ { \mu } ( {@ z }@ ) \rangle
+0209001_page009.0209001_page009-0-emb ( {@ h _ { j } @punct, K _ { j } }@ )
+0208122_page009.0208122_page009-0-emb \sigma _ { B }
+0001133_page010.0001133_page010-6-iso c _ { 1 } ( {@ F _ { r } }@ ) @rel= 2 S @bin+ ( {@ r @bin+ 2 }@ ) E @punct, \qquad c _ { 2 } ( {@ F _ { r } }@ ) @rel= 4
+0002130_page003.0002130_page003-2-iso R _ { A d S } ^ { @bin- 2 } @rel= @bin- {@ \frac { 2 \kappa ^ { 2 } \Lambda _ { b k } } { ( {@ D @bin- 2 }@ ) ( {@ D @bin- 1 }@ ) } }@ ~ @punct.
+0002130_page005.0002130_page005-3-iso \Lambda _ { b r } @rel= {@ \sqrt { @bin- {@ \frac { 8 ( {@ D @bin- 2 }@ ) } { ( {@ D @bin- 1 }@ ) \kappa ^ { 2 } } }@ \Lambda _ { b k } } }@ ~ @punct.

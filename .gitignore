@@ -91,3 +91,8 @@ test-resources/
 benchmarks/basic
 benchmarks/distributed
 benchmarks/half
+
+# Local language-model tool builds
+/utils/kaldi/
+/utils/kenlm/
+/utils/logs/

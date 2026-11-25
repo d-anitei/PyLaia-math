@@ -1,0 +1,108 @@
+running: opt_gsf-wip_cl.sh 1.0 -0.4
+args = [ 1.  -0.4], result = ['12.07', '']
+running: opt_gsf-wip_cl.sh 1.5 -0.4
+args = [ 1.5 -0.4], result = ['11.55', '']
+running: opt_gsf-wip_cl.sh 1.0 -0.6000000000000001
+args = [ 1.  -0.6], result = ['11.93', '']
+running: opt_gsf-wip_cl.sh 1.5 -0.6
+args = [ 1.5 -0.6], result = ['11.48', '']
+running: opt_gsf-wip_cl.sh 1.75 -0.7
+args = [ 1.75 -0.7 ], result = ['11.36', '']
+running: opt_gsf-wip_cl.sh 2.25 -0.5
+args = [ 2.25 -0.5 ], result = ['11.28', '']
+running: opt_gsf-wip_cl.sh 2.875 -0.44999999999999996
+args = [ 2.875 -0.45 ], result = ['11.21', '']
+running: opt_gsf-wip_cl.sh 3.125 -0.7499999999999999
+args = [ 3.125 -0.75 ], result = ['11.16', '']
+running: opt_gsf-wip_cl.sh 3.9375 -0.9249999999999998
+args = [ 3.9375 -0.925 ], result = ['11.11', '']
+running: opt_gsf-wip_cl.sh 5.0625 -0.6749999999999998
+args = [ 5.0625 -0.675 ], result = ['11.11', '']
+running: opt_gsf-wip_cl.sh 6.125 -1.1499999999999997
+args = [ 6.125 -1.15 ], result = ['11.08', '']
+running: opt_gsf-wip_cl.sh 7.75 -1.4999999999999996
+args = [ 7.75 -1.5 ], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 6.625 -1.7499999999999996
+args = [ 6.625 -1.75 ], result = ['11.13', '']
+running: opt_gsf-wip_cl.sh 5.453125 -0.9437499999999998
+args = [ 5.453125 -0.94375 ], result = ['11.09', '']
+running: opt_gsf-wip_cl.sh 9.265625 -1.5187499999999994
+args = [ 9.265625 -1.51875 ], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 11.5625 -2.0749999999999993
+args = [11.5625 -2.075 ], result = ['11.29', '']
+running: opt_gsf-wip_cl.sh 6.98046875 -1.2265624999999996
+args = [ 6.98046875 -1.2265625 ], result = ['11.07', '']
+running: opt_gsf-wip_cl.sh 10.03515625 -1.7921874999999994
+args = [10.03515625 -1.7921875 ], result = ['11.30', '']
+running: opt_gsf-wip_cl.sh 7.744140625 -1.3679687499999995
+args = [ 7.74414062 -1.36796875], result = ['11.07', '']
+running: opt_gsf-wip_cl.sh 8.5078125 -1.5093749999999995
+args = [ 8.5078125 -1.509375 ], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.365234375 -1.3632812499999996
+args = [ 7.36523438 -1.36328125], result = ['11.07', '']
+running: opt_gsf-wip_cl.sh 8.892578125 -1.6460937499999995
+args = [ 8.89257812 -1.64609375], result = ['11.14', '']
+running: opt_gsf-wip_cl.sh 7.7470703125 -1.4339843749999996
+args = [ 7.74707031 -1.43398437], result = ['11.07', '']
+running: opt_gsf-wip_cl.sh 8.12890625 -1.5046874999999995
+args = [ 8.12890625 -1.5046875 ], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.5576171875 -1.4316406249999996
+args = [ 7.55761719 -1.43164062], result = ['11.07', '']
+running: opt_gsf-wip_cl.sh 8.3212890625 -1.5730468749999997
+args = [ 8.32128906 -1.57304687], result = ['11.14', '']
+running: opt_gsf-wip_cl.sh 7.74853515625 -1.4669921874999996
+args = [ 7.74853516 -1.46699219], result = ['11.07', '']
+running: opt_gsf-wip_cl.sh 7.939453125 -1.5023437499999996
+args = [ 7.93945312 -1.50234375], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.65380859375 -1.4658203124999996
+args = [ 7.65380859 -1.46582031], result = ['11.07', '']
+running: opt_gsf-wip_cl.sh 8.03564453125 -1.5365234374999996
+args = [ 8.03564453 -1.53652344], result = ['11.14', '']
+running: opt_gsf-wip_cl.sh 7.749267578125 -1.4834960937499995
+args = [ 7.74926758 -1.48349609], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.940185546875 -1.5188476562499997
+args = [ 7.94018555 -1.51884766], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.7969970703125 -1.4923339843749996
+args = [ 7.79699707 -1.49233398], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.8447265625 -1.5011718749999996
+args = [ 7.84472656 -1.50117187], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.7496337890625 -1.4917480468749995
+args = [ 7.74963379 -1.49174805], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.8450927734375 -1.5094238281249994
+args = [ 7.84509277 -1.50942383], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.77349853515625 -1.4961669921874994
+args = [ 7.77349854 -1.49616699], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.79736328125 -1.5005859374999995
+args = [ 7.79736328 -1.50058594], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.74981689453125 -1.4958740234374996
+args = [ 7.74981689 -1.49587402], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.79754638671875 -1.5047119140624994
+args = [ 7.79754639 -1.50471191], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.761749267578125 -1.4980834960937495
+args = [ 7.76174927 -1.4980835 ], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.773681640625 -1.5002929687499995
+args = [ 7.77368164 -1.50029297], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.749908447265625 -1.4979370117187496
+args = [ 7.74990845 -1.49793701], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.773773193359375 -1.5023559570312497
+args = [ 7.77377319 -1.50235596], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.7558746337890625 -1.4990417480468747
+args = [ 7.75587463 -1.49904175], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.7618408203125 -1.5001464843749996
+args = [ 7.76184082 -1.50014648], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.7499542236328125 -1.4989685058593745
+args = [ 7.74995422 -1.49896851], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.7618865966796875 -1.5011779785156247
+args = [ 7.7618866  -1.50117798], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.752937316894531 -1.4995208740234371
+args = [ 7.75293732 -1.49952087], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.75592041015625 -1.5000732421874996
+args = [ 7.75592041 -1.50007324], result = ['11.06', '']
+running: opt_gsf-wip_cl.sh 7.749977111816406 -1.499484252929687
+args = [ 7.74997711 -1.49948425], result = ['11.06', '']
+Optimization terminated successfully.
+         Current function value: 11.060000
+         Iterations: 18
+         Function evaluations: 51
+Optimum parameters: [ 7.75 -1.5 ]
+Optimum command: opt_gsf-wip_cl.sh 7.75 -1.4999999999999996
