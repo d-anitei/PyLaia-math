@@ -59,7 +59,7 @@ pylaia-htr-netout
 
 The provided model was trained on the IBEM dataset:
 
-https://zenodo.org/record/4757865
+https://zenodo.org/records/21528113
 
 The example configuration files assume the following dataset files/directories
 are available from the working directory:
